@@ -58,13 +58,14 @@ exports.userLogin = async (req, res) => {
             return res.status(400).json({ error: 'Name and password are required' });
         }
 
-        const user = await User.findOne({
-            $or: [
-                { name: name },
-                { _id: name }
-            ]
-        });
-        
+        // const user = await User.findOne({
+        //     $or: [
+        //         { name: name },
+        //         { _id: name }
+        //     ]
+        // });
+        const user = await User.findOne({ name: name });
+
         // console.log(user)
         if (!user) {
             return res.status(404).json({ message: "User not found!", success: false });

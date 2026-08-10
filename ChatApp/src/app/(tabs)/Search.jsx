@@ -116,6 +116,9 @@ const fetchAllUsers = async () => {
 
 // ---- Result row (memoized) -----------------------------------------------
 const UserRow = React.memo(function UserRow({ item, onAdd, isAdded }) {
+  // console.log(item?._id)
+  // console.log(item.friends?.includes(isAdded))
+  console.log(item.friends)
   return (
     <View
       style={{ height: ROW_HEIGHT }}
@@ -133,13 +136,13 @@ const UserRow = React.memo(function UserRow({ item, onAdd, isAdded }) {
       </View>
 
       {
-        isAdded === item._id ||  item.friendRequestsSent?.includes(isAdded) ? (
+        isAdded === item._id ? (
           <View className="w-9 h-9 rounded-xl bg-green-50 items-center justify-center">
             <Check size={18} color="#16a34a" />
           </View>
         ) : (
           <Pressable
-            onPress={() => onAdd([item._id])}
+            onPress={() => onAdd(item._id)}
             className="w-9 h-9 rounded-xl bg-blue-50 items-center justify-center"
           >
             <UserPlus size={18} color="#2563eb" />
@@ -158,6 +161,8 @@ export default function SearchScreen() {
   const debounceRef = useRef(null);
   const [ALL_USER, setALL_USER] = useState([]);
   const [addedFriend, setAddedFriend] = useState('');
+
+  // console.log(ALL_USER)
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -194,7 +199,7 @@ export default function SearchScreen() {
     return () => clearTimeout(debounceRef.current);
   }, [query]);
 
-  const handleAdd = useCallback(async ([_id]) => {
+  const handleAdd = useCallback(async (_id) => {
     try {
       console.log("Add pressed for user:", _id);
 
@@ -214,9 +219,7 @@ export default function SearchScreen() {
           },
         }
       );
-
       console.log("Add friend response:", response.data);
-
       if (response.data.success) {
         setAddedFriend(_id);
       }

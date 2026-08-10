@@ -20,6 +20,10 @@ router.post('/logout', varifyToken, authController.userLogout);
 
 router.get('/get-users', varifyToken, userController.getAllUsers);
 router.get('/profile', varifyToken, userController.getProfile);
+router.get('/my-friends', varifyToken, userController.getMyFriends);
+router.post('/friend-requests', varifyToken, userController.getFriendRequests);
 router.post('/add-friend', varifyToken, userController.addFriend);
+router.post('/accept-request', varifyToken, userController.acceptFriendRequest);
+router.post('/delete-request', varifyToken, userController.deleteFriendRequest);
 
 module.exports = router;

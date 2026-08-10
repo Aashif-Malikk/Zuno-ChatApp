@@ -24,6 +24,7 @@ import {
 import { API_BASE } from "../../config/api";
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
+import { DevSettings } from "react-native";
 
 // Requires NativeWind to be set up in your Expo project:
 // npm install nativewind tailwindcss
@@ -49,7 +50,7 @@ export default function Login() {
       setsuccess(false)
       return
     }
-    
+
     if (userName.includes(' ')) {
       setmsg('Username should not contain spaces.')
       setsuccess(false)
@@ -64,13 +65,14 @@ export default function Login() {
         password: password
       })
       console.log('User Login details: ', response.data)
-      if (response.data.success) {
-        setmsg(response.data.message)
+      if (response?.data?.success) {
+        setmsg(response?.data?.message)
         setsuccess(true)
 
-        await SecureStore.setItemAsync("token", response.data.token);
+        await SecureStore.setItemAsync("token", response?.data?.token);
 
         router.push('/(tabs)/Index')
+        // DevSettings.reload()
       }
     } catch (error: any) {
       console.error("Login error:", error.response?.data || error.message);

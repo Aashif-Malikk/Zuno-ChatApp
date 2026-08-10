@@ -9,6 +9,7 @@ import {
   Animated,
 } from "react-native";
 import { Skeleton } from "boneyard-js/native";
+import { useRouter } from "expo-router";
 import {
   Search,
   SlidersHorizontal,
@@ -17,8 +18,13 @@ import {
   BellOff,
   Users,
   Briefcase,
+  PlusSquare,
+  UserPlus,
 } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as SecureStore from 'expo-secure-store'
+import axios from "axios";
+import { API_BASE } from "../../config/api";
 
 // Requires: npm install lucide-react-native react-native-svg
 
@@ -185,29 +191,29 @@ function ChatRow({ chat, isLast }) {
               }`}
             numberOfLines={1}
           >
-            {chat.message}
+            {chat.message || "no message"}
           </Text>
         )}
       </View>
 
       {/* Right column: time, badges, icons */}
       <View className="items-end">
-        <Text className="text-sm text-slate-400 mb-2">{chat.time}</Text>
+        <Text className="text-sm text-slate-400 mb-2">{chat.time || "2m ago"}</Text>
 
         {chat.unreadCount > 0 && (
           <View className="w-6 h-6 rounded-full bg-blue-600 items-center justify-center">
             <Text className="text-white text-xs font-bold">
-              {chat.unreadCount}
+              {chat.unreadCount || 0}
             </Text>
           </View>
         )}
 
-        {(chat.isPinned || chat.isMuted) && (
+        {/* {(chat.isPinned || chat.isMuted) && (
           <View className="flex-row items-center gap-3 mt-1">
             {chat.isPinned && <Pin size={18} color="#2563eb" />}
             {chat.isMuted && <BellOff size={18} color="#94a3b8" />}
           </View>
-        )}
+        )} */}
       </View>
     </Pressable>
   );
@@ -300,6 +306,26 @@ function SkeletonList() {
   );
 }
 
+const friendsAndRequests = async () => {
+  try {
+    const token = await SecureStore.getItemAsync('token');
+    if (!token) {
+      console.log("No token found");
+      return;
+    }
+
+    const response = await axios.get(`${API_BASE}/my-friends`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json'
+      },
+    });
+    return { friends: response.data.friends, friendRequestsReceived: response.data.friendRequestsReceived };
+
+  } catch (error) {
+    console.error("Error fetching friends and requests:", error);
+  }
+}
 
 // ---- Screen ---------------------------------------------------------------
 export default function ChatsScreen() {
@@ -307,10 +333,21 @@ export default function ChatsScreen() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [friends, setfriends] = useState([]);
+  const [friendRequest, setfriendRequest] = useState([]);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1200);
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const fetchFriends = async () => {
+      const { friends, friendRequestsReceived } = await friendsAndRequests();
+      setfriendRequest(friendRequestsReceived)
+      setfriends(friends)
+    }
+    fetchFriends();
   }, []);
 
   const filteredChats = useMemo(() => {
@@ -338,6 +375,40 @@ export default function ChatsScreen() {
     return result;
   }, [query, activeFilter]);
 
+  const router = useRouter()
+
+  const showFriendRequests = async () => {
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      if (!token) {
+        console.log("No token found");
+        return;
+      }
+      const response = await axios.post(`${API_BASE}/friend-requests`, {
+        requestIds: friendRequest
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json'
+        },
+      });
+
+      // const res = response.data.usersThatSendRequest
+      router.push({
+        pathname: "/Requests/FriendRequests",
+        params: {
+          requests: JSON.stringify(response.data.usersThatSendRequest),
+        },
+      });
+
+      // console.log("Friend Requests data:", response.data);
+      redirect
+    } catch (error) {
+      console.error("Error fetching friend requests:", error);
+      throw error
+    }
+  }
+
   return (
     <SafeAreaView edges={["top", "left", "right"]} className="flex-1 bg-white">
       <View className="flex-1 px-6">
@@ -346,6 +417,24 @@ export default function ChatsScreen() {
           <Text className="text-3xl font-extrabold text-slate-900">Zuno</Text>
 
           <View className="flex-row items-center gap-3">
+            <View className="relative">
+              <Pressable
+                onPress={showFriendRequests}
+                className="w-11 h-11 rounded-xl border border-slate-200 items-center justify-center">
+                <UserPlus size={23} color="#0f172a" />
+              </Pressable>
+
+              {/* Notification Badge */}
+              {
+                friendRequest.length > 0 && (
+                  <View className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 items-center justify-center border-2 border-white">
+                    <Text className="text-[10px] font-bold text-white">
+                      {friendRequest.length}
+                    </Text>
+                  </View>
+                )
+              }
+            </View>
 
             <View>
               <Pressable
