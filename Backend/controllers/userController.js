@@ -153,7 +153,7 @@ exports.deleteFriendRequest = async (req, res) => {
 exports.getMyFriends = async (req, res) => {
     try {
         const userId = req.userId;
-        const user = await User.findById(userId).populate('friends', 'name email');
+        const user = await User.findById(userId).populate('friends', 'name email _id avatar');
 
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
@@ -165,6 +165,24 @@ exports.getMyFriends = async (req, res) => {
         return res.status(500).json({ success: false, message: "Error fetching friends" });
     }
 };
+
+// exports.getAllFriends = async (req, res) => {
+//     try {
+//         const userId = req.userId;
+
+//         const user = await User.findById(userId).populate('friends', 'name email avatar _id');
+
+//         console.log(user.friends)
+//         if (!user) {
+//             return res.status(404).json({ success: false, message: "User not found" });
+//         }
+
+//         return res.status(200).json({ success: true, friends: user.friends, friendRequestsReceived: user.friendRequestsReceived });
+//     } catch (error) {
+//         console.error("Get friends error:", error);
+//         return res.status(500).json({ success: false, message: "Error fetching friends" });
+//     }
+// }
 
 exports.getFriendRequests = async (req, res) => {
     try {
@@ -183,3 +201,4 @@ exports.getFriendRequests = async (req, res) => {
         return res.status(500).json({ success: false, message: "Error fetching friend requests" });
     }
 };
+

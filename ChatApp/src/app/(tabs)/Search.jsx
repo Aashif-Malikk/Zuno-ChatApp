@@ -116,9 +116,6 @@ const fetchAllUsers = async () => {
 
 // ---- Result row (memoized) -----------------------------------------------
 const UserRow = React.memo(function UserRow({ item, onAdd, isAdded }) {
-  // console.log(item?._id)
-  // console.log(item.friends?.includes(isAdded))
-  console.log(item.friends)
   return (
     <View
       style={{ height: ROW_HEIGHT }}
@@ -131,7 +128,7 @@ const UserRow = React.memo(function UserRow({ item, onAdd, isAdded }) {
           {item.name}
         </Text>
         <Text className="text-sm text-slate-400 mt-0.5" numberOfLines={1}>
-          {item?._id || "No username"}
+          {item?.uniqueId || "No username"}
         </Text>
       </View>
 
@@ -201,7 +198,7 @@ export default function SearchScreen() {
 
   const handleAdd = useCallback(async (_id) => {
     try {
-      console.log("Add pressed for user:", _id);
+      // console.log("Add pressed for user:", _id);
 
       const token = await SecureStore.getItemAsync("token");
 
@@ -219,7 +216,7 @@ export default function SearchScreen() {
           },
         }
       );
-      console.log("Add friend response:", response.data);
+      // console.log("Add friend response:", response.data);
       if (response.data.success) {
         setAddedFriend(_id);
       }

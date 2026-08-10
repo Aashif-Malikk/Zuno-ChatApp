@@ -31,7 +31,7 @@ exports.userRegister = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const newuser = new User({
-            _id: uniqueId,
+            uniqueId,
             name: name,
             email,
             password: hashedPassword,
@@ -64,7 +64,7 @@ exports.userLogin = async (req, res) => {
         //         { _id: name }
         //     ]
         // });
-        const user = await User.findOne({ name: name });
+        const user = await User.findOne({ name });
 
         // console.log(user)
         if (!user) {

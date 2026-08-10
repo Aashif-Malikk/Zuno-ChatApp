@@ -336,10 +336,14 @@ export default function ChatsScreen() {
   const [friends, setfriends] = useState([]);
   const [friendRequest, setfriendRequest] = useState([]);
 
+  // console.log(friends)
+
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1200);
     return () => clearTimeout(timer);
   }, []);
+
+  // fetching Friend Requests ----------------------
 
   useEffect(() => {
     const fetchFriends = async () => {
@@ -351,7 +355,7 @@ export default function ChatsScreen() {
   }, []);
 
   const filteredChats = useMemo(() => {
-    let result = CHATS;
+    let result = friends;
 
     if (query.trim().length > 0) {
       const q = query.trim().toLowerCase();
@@ -402,7 +406,6 @@ export default function ChatsScreen() {
       });
 
       // console.log("Friend Requests data:", response.data);
-      redirect
     } catch (error) {
       console.error("Error fetching friend requests:", error);
       throw error
@@ -499,7 +502,7 @@ export default function ChatsScreen() {
         ) : (
           <FlatList
             data={filteredChats}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item._id}
             showsVerticalScrollIndicator={false}
             renderItem={({ item, index }) => (
               <ChatRow chat={item} isLast={index === filteredChats.length - 1} />
