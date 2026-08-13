@@ -50,6 +50,7 @@ exports.userRegister = async (req, res) => {
 }
 
 exports.userLogin = async (req, res) => {
+    console.log("hello")
     try {
         const { name, password } = req.body;
         console.log(req.body)

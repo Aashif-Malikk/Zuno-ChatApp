@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
 import { API_BASE } from "../../config/api";
-import { Redirect, router } from "expo-router";
+import { useRouter } from "expo-router";
 import * as SecureStore from 'expo-secure-store'
 
 
@@ -24,13 +24,13 @@ import * as SecureStore from 'expo-secure-store'
 //   npx expo install expo-clipboard
 //   npm install lucide-react-native react-native-svg
 
-const USER = {
-  name: "Aashif Malik",
-  username: "@aashif",
-  uniqueId: "A7K9P2X",
-  avatar: "https://i.pravatar.cc/150?img=12",
-  isOnline: true,
-};
+// const USER = {
+//   name: "Aashif Malik",
+//   username: "@aashif",
+//   uniqueId: "A7K9P2X",
+//   avatar: "https://i.pravatar.cc/150?img=12",
+//   isOnline: true,
+// };
 
 const ACCOUNT_ITEMS = [
   { key: "edit", label: "Edit Profile", icon: User, color: "#2563eb" },
@@ -79,12 +79,10 @@ function ListRow({ item, isLast, onPress }) {
 const getProfileDeatils = async () => {
   try {
     const token = await SecureStore.getItemAsync("token");
-    const response = await axios.get(`${API_BASE}/profile`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    const myProfile = await axios.get(`${API_BASE}/profile`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
     });
-    return response.data.user;
+    return myProfile.data.user;
   } catch (error) {
     console.error("Error fetching profile details:", error);
     throw error;
@@ -93,12 +91,16 @@ const getProfileDeatils = async () => {
 
 export default function ProfileScreen({ navigation }) {
   const [copied, setCopied] = useState(false);
-  const [User, setUser] = useState([])
+  const [USER, setUser] = useState([])
   console.log(User)
+  const router = useRouter()
 
   useEffect(() => {
-    const details = getProfileDeatils();
-    setUser(details)
+    const myProfile = async () => {
+      const details = await getProfileDeatils();
+      setUser(details)
+    }
+    myProfile()
   }, [])
 
   const handleCopyId = async () => {
@@ -110,6 +112,9 @@ export default function ProfileScreen({ navigation }) {
   const handleAccountPress = (key) => {
     // TODO: navigate to the relevant screen, e.g. navigation.navigate(key)
     console.log("Account item pressed:", key);
+    if (key == 'notifications') {
+      router.push('/(comp)/Notification')
+    }
   };
 
   const handleMorePress = async (key) => {
@@ -171,9 +176,6 @@ export default function ProfileScreen({ navigation }) {
                 source={{ uri: USER.avatar }}
                 className="w-20 h-20 rounded-full"
               />
-              {USER.isOnline && (
-                <View className="absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white" />
-              )}
             </View>
 
             <View className="flex-1 ml-4">
@@ -181,7 +183,7 @@ export default function ProfileScreen({ navigation }) {
                 {USER.name}
               </Text>
               <Text className="text-base text-slate-400 mt-0.5">
-                {USER.username}
+                {USER.email}
               </Text>
             </View>
 

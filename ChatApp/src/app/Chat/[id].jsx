@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ChevronLeft,
   Phone,
@@ -28,97 +28,15 @@ import {
   Check,
   CheckCheck,
 } from "lucide-react-native";
+import * as SecureStore from "expo-secure-store";
+import axios from "axios";
+import { API_BASE } from "../../config/api";
+import { io } from "socket.io-client";
 
 // Requires: npm install lucide-react-native react-native-svg
-// Route suggestion: app/chat/[id].tsx (a stack screen outside the (tabs) group)
+// Route: app/chat/[id].tsx
 
-const CONTACT = {
-  name: "Rahul Sharma",
-  status: "Online",
-  avatar: "https://i.pravatar.cc/150?img=12",
-};
-
-// ---- Mock messages ---------------------------------------------------
-const MESSAGES = [
-  { id: "date-1", type: "date", label: "Today" },
-  {
-    id: "1",
-    type: "text",
-    sender: "other",
-    text: "Hey! Are we still meeting today?",
-    time: "10:30 AM",
-  },
-  {
-    id: "2",
-    type: "text",
-    sender: "me",
-    text: "Yes, absolutely! 6 PM at the cafe.",
-    time: "10:31 AM",
-    read: true,
-  },
-  {
-    id: "3",
-    type: "text",
-    sender: "other",
-    text: "Perfect! I'll be there.",
-    time: "10:31 AM",
-  },
-  {
-    id: "4",
-    type: "text",
-    sender: "me",
-    text: "Great! I'm looking forward to it 😊",
-    time: "10:32 AM",
-    read: true,
-  },
-  {
-    id: "5",
-    type: "text",
-    sender: "other",
-    text: "Me too! By the way, check out this photo I took yesterday.",
-    time: "10:33 AM",
-  },
-  {
-    id: "6",
-    type: "image",
-    sender: "other",
-    image:
-      "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80",
-    time: "10:33 AM",
-  },
-  {
-    id: "7",
-    type: "text",
-    sender: "me",
-    text: "Wow! That's beautiful 😍",
-    time: "10:34 AM",
-    read: true,
-  },
-  {
-    id: "8",
-    type: "voice",
-    sender: "other",
-    duration: "0:12",
-    time: "10:35 AM",
-    avatar: "https://i.pravatar.cc/150?img=12",
-  },
-  {
-    id: "9",
-    type: "text",
-    sender: "me",
-    text: "Nice voice note! 😀",
-    time: "10:36 AM",
-    read: true,
-  },
-];
-
-// Fixed-height fake waveform bars for the voice note UI
-const WAVEFORM_BARS = [
-  6, 14, 9, 20, 12, 24, 10, 18, 8, 22, 14, 10, 16, 9, 20, 12, 8, 15, 10, 18, 7,
-  13, 9, 16, 11,
-];
-
-// ---- Sub-components ------------------------------------------------------
+// ---- Sub-components (unchanged) -------------------------------------------
 function DateSeparator({ label }) {
   return (
     <View className="items-center my-4">
@@ -129,44 +47,40 @@ function DateSeparator({ label }) {
   );
 }
 
-function ReadReceipt({ read }) {
-  return read ? (
+function ReadReceipt({ status }) {
+  return status === "seen" ? (
     <CheckCheck size={15} color="#2563eb" />
   ) : (
     <Check size={15} color="#94a3b8" />
   );
 }
 
-function TextBubble({ message }) {
-  const isMe = message.sender === "me";
+function TextBubble({ chat, myId }) {
+  const isMe = chat.senderId === myId || chat.sender === "me";
   return (
-    <View
-      className={`max-w-[80%] mb-4 ${isMe ? "self-end" : "self-start"}`}
-    >
+    <View className={`max-w-[80%] mb-4 ${isMe ? "self-end" : "self-start"}`}>
       <View
-        className={`rounded-3xl px-5 py-3 ${
-          isMe
-            ? "bg-blue-100 rounded-tr-md"
-            : "bg-white rounded-tl-md border border-slate-100"
-        }`}
+        className={`rounded-3xl px-5 py-3 ${isMe
+          ? "bg-blue-100 rounded-tr-md"
+          : "bg-white rounded-tl-md border border-slate-100"
+          }`}
       >
-        <Text className="text-base text-slate-900">{message.text}</Text>
+        <Text className="text-base text-slate-900">{chat.message}</Text>
         <View className="flex-row items-center justify-end mt-1.5 gap-1">
-          <Text className="text-xs text-slate-400">{message.time}</Text>
-          {isMe && <ReadReceipt read={message.read} />}
+          <Text className="text-xs text-slate-400">{chat.time}</Text>
+          {isMe && <ReadReceipt status={chat.status || "sent"} />}
         </View>
       </View>
     </View>
   );
 }
 
-function ImageBubble({ message }) {
-  const isMe = message.sender === "me";
+function ImageBubble({ message, myId }) {
+  const isMe = message.sender === "me" || message.senderId === myId;
   return (
     <View
-      className={`max-w-[80%] mb-4 flex-row items-center ${
-        isMe ? "self-end justify-end" : "self-start"
-      }`}
+      className={`max-w-[80%] mb-4 flex-row items-center ${isMe ? "self-end justify-end" : "self-start"
+        }`}
     >
       <View className="rounded-3xl overflow-hidden border border-slate-100">
         <Image
@@ -188,14 +102,13 @@ function ImageBubble({ message }) {
   );
 }
 
-function VoiceBubble({ message }) {
-  const isMe = message.sender === "me";
+function VoiceBubble({ message, myId }) {
+  const isMe = message.sender === "me" || message.senderId === myId;
   return (
     <View className={`max-w-[85%] mb-4 ${isMe ? "self-end" : "self-start"}`}>
       <View
-        className={`flex-row items-center rounded-3xl px-4 py-3 ${
-          isMe ? "bg-blue-100" : "bg-white border border-slate-100"
-        }`}
+        className={`flex-row items-center rounded-3xl px-4 py-3 ${isMe ? "bg-blue-100" : "bg-white border border-slate-100"
+          }`}
       >
         <Pressable className="w-10 h-10 rounded-full bg-blue-600 items-center justify-center mr-3">
           <Play size={16} color="white" fill="white" />
@@ -203,7 +116,7 @@ function VoiceBubble({ message }) {
 
         <View className="flex-1">
           <View className="flex-row items-end h-6">
-            {WAVEFORM_BARS.map((h, i) => (
+            {(message.waveform || DEFAULT_WAVEFORM).map((h, i) => (
               <View
                 key={i}
                 style={{ height: h }}
@@ -231,37 +144,247 @@ function VoiceBubble({ message }) {
   );
 }
 
-function MessageItem({ item }) {
+const DEFAULT_WAVEFORM = [
+  6, 14, 9, 20, 12, 24, 10, 18, 8, 22, 14, 10, 16, 9, 20, 12, 8, 15, 10, 18, 7,
+  13, 9, 16, 11,
+];
+
+function MessageItem({ myId, item }) {
   switch (item.type) {
     case "date":
       return <DateSeparator label={item.label} />;
     case "image":
-      return <ImageBubble message={item} />;
+      return <ImageBubble myId={myId} message={item} />;
     case "voice":
-      return <VoiceBubble message={item} />;
+      return <VoiceBubble myId={myId} message={item} />;
     default:
-      return <TextBubble message={item} />;
+      return <TextBubble myId={myId} chat={item} />;
   }
 }
+
+// Fetches: who the other person is, the message history, and my own user id
+// (needed so we can tell "my messages" apart from "their messages" in the UI).
+const fetchChatPersonAndHistory = async (friendId) => {
+  try {
+    const token = await SecureStore.getItemAsync("token");
+    if (!token) {
+      console.log("No token found");
+      return;
+    }
+
+    const myProfile = await axios.get(`${API_BASE}/profile`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    });
+
+    const response = await axios.post(
+      `${API_BASE}/chatPerson`,
+      { receiverId: friendId, senderId: myProfile.data.user._id },
+      {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      }
+    );
+
+    return {
+      contact: response.data.person,
+      previousChats: response?.data?.previousChats || [],
+      myId: myProfile.data.user._id,
+    };
+  } catch (error) {
+    console.error("Error fetching chat person:", error);
+  }
+};
 
 // ---- Screen ----------------------------------------------------------------
 export default function ChatScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams();
+
+  // The id of the PERSON YOU'RE CHATTING WITH (from the route), not a
+  // conversation id and not your own id.
+  const friendId = id ? JSON.parse(id) : null;
+
   const [draft, setDraft] = useState("");
+  const [inputHeight, setInputHeight] = useState(42);
+  const [contact, setContact] = useState({});
+  const [isContactOnline, setIsContactOnline] = useState(false);
+  const [messages, setMessages] = useState([
+    { id: "date-1", type: "date", label: "Today" },
+  ]);
+  const socketRef = useRef(null);
+
+  const flatListRef = useRef(null);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({
+          animated: true,
+        });
+      }, 100);
+    }
+  }, [messages]);
+
+  // Your OWN logged-in user id — previously (confusingly) called `senderID`,
+  // even though it never held a message sender's id, only your own.
+  const [myId, setMyId] = useState("");
+
   const hasDraft = draft.trim().length > 0;
 
-  const renderItem = useCallback(({ item }) => <MessageItem item={item} />, []);
-  const keyExtractor = useCallback((item) => item.id, []);
+  // ---- Fetch contact info + message history -------------------------------
+  useEffect(() => {
+    if (!friendId) return;
+
+    const load = async () => {
+      const result = await fetchChatPersonAndHistory(friendId);
+      if (result?.contact) {
+        setContact(result.contact);
+        setMessages((prev) => [...prev, ...(result.previousChats || [])]);
+        setMyId(result.myId);
+      }
+    };
+    load();
+  }, [id]);
+
+  const renderItem = useCallback(
+    ({ item }) => <MessageItem item={item} myId={myId} />,
+    [myId]
+  );
+  const keyExtractor = useCallback((item) => item._id ?? item.id, []);
 
   const handleSend = () => {
-    if (!hasDraft) return;
-    // TODO: wire up your send-message logic here
-    console.log("Send:", draft.trim());
+    if (!hasDraft || !friendId) return;
+
+    const outgoingMessage = {
+      _id: `local-${Math.floor(Date.now() / 1000)}`,
+      type: "text",
+      message: draft.trim(),
+      time: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      sender: "me",
+      senderId: myId, // FIX: previously missing — this is what the
+      // "mark as seen" listener below needs to find and update your own
+      // outgoing messages once the other person has seen them.
+      status: "sent",
+    };
+
+    setMessages((prev) => [...prev, outgoingMessage]);
+    socketRef.current?.emit("message", {
+      message: draft.trim(),
+      receiverId: friendId,
+      outgoingMessage,
+    });
+
     setDraft("");
   };
 
+  // ---- Socket: live messages, seen receipts, and presence -----------------
+  useEffect(() => {
+    if (!friendId || !myId) return; // wait until we actually know both ids
+
+    let mounted = true;
+    let socket;
+
+    const setupSocket = async () => {
+      const token = await SecureStore.getItemAsync("token");
+      if (!token) return;
+
+      socket = io(API_BASE, {
+        auth: { token },
+        transports: ["websocket"],
+      });
+      socketRef.current = socket;
+
+      // FIX: fire on every successful connect (including reconnects), not
+      // tied to the `messages` array changing. This is what actually marks
+      // any messages that arrived while you were offline as "seen" the
+      // moment you open this chat screen.
+      socket.on("connect", () => {
+        socket.emit("message:seen", {
+          senderId: friendId, // messages sent BY the person you're chatting with
+          receiverId: myId, // ...that YOU have now seen
+        });
+      });
+
+      // A new message arrives while this chat screen is open.
+      socket.on("receive-message", (data) => {
+        if (!mounted) return;
+        if (data.senderId !== friendId) return; // not this conversation — ignore
+
+        // Real-time case: you're looking at the chat right now, so
+        // immediately tell the server you've seen it.
+        socket.emit("message:seen", {
+          senderId: friendId,
+          receiverId: myId,
+        });
+
+        const incomingMessage = {
+          _id: data._id || `remote-${Date.now()}`,
+          type: data.type || "text",
+          message: data.message || data.text || "",
+          image: data.image,
+          duration: data.duration,
+          avatar: data.avatar,
+          time:
+            data.time ||
+            new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          sender: "other",
+          senderId: data.senderId,
+          status: "seen", // you saw it the instant it arrived
+        };
+        setMessages((prev) => [...prev, incomingMessage]);
+      });
+
+      // The other person has just seen the messages YOU sent them.
+      // FIX: was comparing `msg.senderId === data.receiverId`, but outgoing
+      // messages never had a `senderId` set, so this never matched anything.
+      // Now that handleSend() tags outgoing messages with `senderId: myId`,
+      // and we only update messages that belong to THIS open conversation.
+      socket.on("message:marked-seen", (data) => {
+        if (!mounted) return;
+        if (data.receiverId !== friendId) return; // seen-event for a different chat
+
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.sender === "me" ? { ...msg, status: "seen" } : msg
+          )
+        );
+      });
+
+      socket.on("onlineUsers:init", (ids) => {
+        if (mounted) setIsContactOnline(ids.includes(friendId));
+      });
+
+      socket.on("user:online", ({ userId }) => {
+        if (mounted && userId === friendId) setIsContactOnline(true);
+      });
+
+      socket.on("user:offline", ({ userId }) => {
+        if (mounted && userId === friendId) setIsContactOnline(false);
+      });
+
+      socket.on("connect_error", (err) => {
+        console.log("Socket connection failed:", err.message);
+      });
+    };
+
+    setupSocket();
+
+    return () => {
+      mounted = false;
+      socket?.off("connect");
+      socket?.off("receive-message");
+      socket?.off("message:marked-seen");
+      socket?.disconnect();
+    };
+  }, [friendId, myId]);
+
   return (
-    <SafeAreaView className="flex-1 bg-slate-50" edges={["top", "left", "right"]}>
+    <SafeAreaView className="flex-1 bg-slate-50">
       {/* Header */}
       <View className="flex-row items-center px-4 py-3 bg-white border-b border-slate-100">
         <Pressable onPress={() => router.back()} className="mr-2 p-1">
@@ -270,17 +393,24 @@ export default function ChatScreen() {
 
         <View className="relative">
           <Image
-            source={{ uri: CONTACT.avatar }}
+            source={{ uri: contact.avatar }}
             className="w-11 h-11 rounded-full"
           />
-          <View className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
+          {isContactOnline && (
+            <View className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
+          )}
         </View>
 
         <View className="flex-1 ml-3">
           <Text className="text-base font-bold text-slate-900">
-            {CONTACT.name}
+            {contact.name}
           </Text>
-          <Text className="text-sm text-emerald-500">{CONTACT.status}</Text>
+          <Text
+            className={`text-sm ${isContactOnline ? "text-emerald-500" : "text-slate-400"
+              }`}
+          >
+            {isContactOnline ? "Online" : "Offline"}
+          </Text>
         </View>
 
         <View className="flex-row items-center gap-5">
@@ -299,7 +429,7 @@ export default function ChatScreen() {
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 10}
       >
         {/* Encrypted banner */}
         <View className="items-center py-3">
@@ -313,35 +443,52 @@ export default function ChatScreen() {
         </View>
 
         <FlatList
-          data={MESSAGES}
+          ref={flatListRef}
+          data={messages}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 8 }}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingBottom: 8,
+          }}
+          onContentSizeChange={() => {
+            flatListRef.current?.scrollToEnd({
+              animated: true,
+            });
+          }}
         />
 
         {/* Input bar */}
-        <View className="flex-row items-center px-4 py-3 bg-white border-t border-slate-100">
+        <View className="flex-row items-end px-4 py-3 bg-white border-t border-slate-100">
           <Pressable className="w-9 h-9 rounded-full bg-slate-100 items-center justify-center mr-2">
             <Plus size={20} color="#334155" />
           </Pressable>
 
-          <View className="flex-1 flex-row items-center bg-slate-100 rounded-full px-4 h-11">
+          <View
+            style={{ height: inputHeight }}
+            className="flex-1 flex-row items-end bg-slate-100 rounded-md px-4"
+          >
             <TextInput
               value={draft}
               onChangeText={setDraft}
               placeholder="Type a message..."
               placeholderTextColor="#94a3b8"
               multiline
+              onContentSizeChange={(event) => {
+                const height = event.nativeEvent.contentSize.height;
+                setInputHeight(Math.min(Math.max(42, height), 120));
+              }}
+              style={{ height: inputHeight, textAlignVertical: "top" }}
               className="flex-1 text-base text-slate-900"
             />
-            <Pressable className="ml-2">
+            <Pressable className="ml-2 mb-3">
               <Smile size={20} color="#94a3b8" />
             </Pressable>
-            <Pressable className="ml-3">
+            <Pressable className="ml-3 mb-3">
               <Paperclip size={20} color="#94a3b8" />
             </Pressable>
-            <Pressable className="ml-3">
+            <Pressable className="ml-3 mb-3">
               <Camera size={20} color="#94a3b8" />
             </Pressable>
           </View>

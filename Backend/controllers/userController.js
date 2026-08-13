@@ -1,4 +1,4 @@
-const { User } = require("../Mongo/Schema");
+const { User, Message } = require("../Mongo/Schema");
 
 exports.getAllUsers = async (req, res) => {
     try {
@@ -166,24 +166,6 @@ exports.getMyFriends = async (req, res) => {
     }
 };
 
-// exports.getAllFriends = async (req, res) => {
-//     try {
-//         const userId = req.userId;
-
-//         const user = await User.findById(userId).populate('friends', 'name email avatar _id');
-
-//         console.log(user.friends)
-//         if (!user) {
-//             return res.status(404).json({ success: false, message: "User not found" });
-//         }
-
-//         return res.status(200).json({ success: true, friends: user.friends, friendRequestsReceived: user.friendRequestsReceived });
-//     } catch (error) {
-//         console.error("Get friends error:", error);
-//         return res.status(500).json({ success: false, message: "Error fetching friends" });
-//     }
-// }
-
 exports.getFriendRequests = async (req, res) => {
     try {
         const userId = req.userId;
@@ -201,4 +183,35 @@ exports.getFriendRequests = async (req, res) => {
         return res.status(500).json({ success: false, message: "Error fetching friend requests" });
     }
 };
+
+exports.chatPerson = async (req, res) => {
+    try {
+        const { receiverId, senderId } = req.body
+        const user = await User.findById(receiverId).select("-password -email -phone -createdAt -updatedAt -dob -friends -friendRequestsSent -friendRequestsReceived")
+        const olderChats = await Message.find({
+            $or: [
+                {
+                    senderId: senderId,
+                    receiverId: receiverId,
+                },
+                {
+                    senderId: receiverId,
+                    receiverId: senderId,
+                },
+            ],
+        }).sort({ createdAt: 1 });
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        if (!olderChats) {
+            return res.json({ message: "Start Chatting" })
+        }
+
+        return res.status(200).json({ success: true, person: user, previousChats: olderChats });
+    } catch (error) {
+        console.error("Get Chat Person error:", error);
+        return res.status(500).json({ success: false, message: "Error fetching Person" });
+    }
+}
 
