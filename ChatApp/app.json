@@ -13,10 +13,7 @@
     "android": {
       "softwareKeyboardLayoutMode": "pan",
       "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "android.permission.POST_NOTIFICATIONS"
-      ],
-      "package": "com.anonymous.Zuno"
+      "package": "com.aashifmalik.Zuno"
     },
     "web": {
       "output": "static",
@@ -40,6 +37,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "fb30e7ec-bacc-428b-b9a7-0895b541de9a"
+      }
+    },
+    "owner": "aashif_malik"
   }
 }
