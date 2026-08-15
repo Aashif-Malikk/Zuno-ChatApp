@@ -4,11 +4,11 @@
     "slug": "Zuno",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "../assets/Logo.png",
+    "icon": "./assets/Logo.png",
     "scheme": "zuno",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "../assets/Logo.png"
+      "icon": "./assets/Logo.png"
     },
     "android": {
       "softwareKeyboardLayoutMode": "pan",
@@ -17,7 +17,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "../assets/Logo.png"
+      "favicon": "./assets/Logo.png"
     },
     "plugins": [
       "expo-router",
@@ -25,7 +25,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",
-          "image": "../assets/Logo.png",
+          "image": "./assets/Logo.png",
           "imageWidth": 76
         }
       ],

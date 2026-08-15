@@ -57,6 +57,8 @@ export default function Login() {
       return
     }
 
+    console.log(API_BASE)
+
     setLoading(true)
     setmsg('')
     try {

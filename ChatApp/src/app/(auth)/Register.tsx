@@ -73,9 +73,14 @@ export default function Register() {
       setsuccess(false)
       return
     }
+    console.log("🔥 API BASE:", API_BASE);
+    console.log(
+      "🔥 SIGNUP URL:",
+      `${API_BASE}/auth/signup`
+    );
 
     setLoading(true)
-    console.log(loading)
+    // console.log(loading)
     setmsg('')
     try {
       const response = await axios.post(`${API_BASE}/auth/signup`, {

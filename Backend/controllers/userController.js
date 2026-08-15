@@ -150,16 +150,55 @@ exports.deleteFriendRequest = async (req, res) => {
     }
 }
 
-exports.getMyFriends = async (req, res) => {
+exports.getAllIndexPageData = async (req, res) => {
     try {
         const userId = req.userId;
-        const user = await User.findById(userId).populate('friends', 'name email _id avatar');
+
+        const user = await User.findById(userId)
+            .populate('friends', 'name email _id avatar');
 
         if (!user) {
-            return res.status(404).json({ success: false, message: "User not found" });
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
         }
 
-        return res.status(200).json({ success: true, friends: user.friends, friendRequestsReceived: user.friendRequestsReceived });
+        const friendsWithLastMessage = await Promise.all(
+            user.friends.map(async (friend) => {
+
+                const lastMessage = await Message.findOne({
+                    $or: [
+                        {
+                            senderId: userId,
+                            receiverId: friend._id,
+                        },
+                        {
+                            senderId: friend._id,
+                            receiverId: userId,
+                        },
+                    ],
+                }).sort({ createdAt: -1 });
+
+                const unseenCount = await Message.countDocuments({
+                    senderId: friend._id,
+                    receiverId: userId,
+                    status: { $ne: "seen" },
+                });
+
+                return {
+                    ...friend.toObject(),
+                    lastMessage: lastMessage || null,
+                    unseenCount,
+                };
+            })
+        );
+
+        return res.status(200).json({
+            success: true,
+            friends: friendsWithLastMessage,
+            friendRequestsReceived: user.friendRequestsReceived
+        });
     } catch (error) {
         console.error("Get friends error:", error);
         return res.status(500).json({ success: false, message: "Error fetching friends" });

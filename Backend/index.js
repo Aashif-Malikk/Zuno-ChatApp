@@ -13,7 +13,7 @@ const server = createServer(app) // NOTE: no "new" — createServer is a factory
 
 const io = new Server(server, {
     cors: {
-        origin: "*",
+        origin: ["http://192.168.1.7:3000","https://zuno-chatapp.onrender.com"],
         methods: ["GET", "POST"],
     },
 })

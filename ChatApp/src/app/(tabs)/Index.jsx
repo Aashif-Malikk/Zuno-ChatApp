@@ -109,7 +109,7 @@ function ChatRow({ chat, isLast, isOnline }) {
               }`}
             numberOfLines={1}
           >
-            {chat.message || "no message"}
+            {chat.lastMessage !== null ? chat.lastMessage.message : "no message"}
           </Text>
         )}
       </View>
@@ -117,13 +117,13 @@ function ChatRow({ chat, isLast, isOnline }) {
       {/* Right column: time, badges, icons */}
       <View className="items-end">
         <Text className="text-sm text-slate-400 mb-2">
-          {chat.time || "2m ago"}
+          {"on", chat.lastMessage !== null ? chat.lastMessage.time : " " || "2m ago"}
         </Text>
 
-        {chat.unreadCount > 0 && (
+        {chat.unseenCount > 0 && (
           <View className="w-6 h-6 rounded-full bg-blue-600 items-center justify-center">
             <Text className="text-white text-xs font-bold">
-              {chat.unreadCount || 0}
+              {chat.unseenCount || 0}
             </Text>
           </View>
         )}
@@ -218,15 +218,16 @@ function SkeletonList() {
   );
 }
 
-const friendsAndRequests = async () => {
+const getAllIndexData = async (setIsLoading) => {
   try {
     const token = await SecureStore.getItemAsync("token");
     if (!token) {
       console.log("No token found");
       return;
     }
+    setIsLoading(true)
 
-    const response = await axios.get(`${API_BASE}/my-friends`, {
+    const response = await axios.get(`${API_BASE}/indexData`, {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/json",
@@ -238,6 +239,8 @@ const friendsAndRequests = async () => {
     };
   } catch (error) {
     console.error("Error fetching friends and requests:", error);
+  } finally {
+    setIsLoading(false)
   }
 };
 
@@ -254,6 +257,10 @@ export default function ChatsScreen() {
   // This is the actual fix: we can track any number of online friends at once.
   const [onlineUserIds, setOnlineUserIds] = useState(new Set());
   const socketRef = useRef(null);
+
+  console.log(friends)
+
+  console.log(API_BASE)
 
   // ---- Socket setup ---------------------------------------------------
   useEffect(() => {
@@ -304,20 +311,20 @@ export default function ChatsScreen() {
     };
   }, [socketRef]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1200);
-    return () => clearTimeout(timer);
-  }, []);
+  // useEffect(() => {
+  //   const timer = setTimeout(() => setIsLoading(false), 1200);
+  //   return () => clearTimeout(timer);
+  // }, []);
 
   // ---- Fetching friends + friend requests ----------------------------
   useEffect(() => {
-    const fetchFriends = async () => {
-      const result = await friendsAndRequests();
+    const indexData = async () => {
+      const result = await getAllIndexData(setIsLoading);
       if (!result) return;
       setfriendRequest(result.friendRequestsReceived);
       setfriends(result.friends);
     };
-    fetchFriends();
+    indexData();
   }, []);
 
   const filteredChats = useMemo(() => {

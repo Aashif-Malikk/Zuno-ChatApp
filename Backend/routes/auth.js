@@ -20,7 +20,7 @@ router.post('/logout', varifyToken, authController.userLogout);
 
 router.get('/get-users', varifyToken, userController.getAllUsers);
 router.get('/profile', varifyToken, userController.getProfile);
-router.get('/my-friends', varifyToken, userController.getMyFriends);
+router.get('/indexData', varifyToken, userController.getAllIndexPageData);
 // router.get('/friends', varifyToken, userController.getAllFriends);
 router.post('/friend-requests', varifyToken, userController.getFriendRequests);
 router.post('/add-friend', varifyToken, userController.addFriend);
