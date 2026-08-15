@@ -32,6 +32,7 @@ import * as SecureStore from "expo-secure-store";
 import axios from "axios";
 import { API_BASE } from "../../config/api";
 import { io } from "socket.io-client";
+import PickImage from "../components/PickImage";
 
 // Requires: npm install lucide-react-native react-native-svg
 // Route: app/chat/[id].tsx
@@ -207,6 +208,7 @@ export default function ChatScreen() {
   const [inputHeight, setInputHeight] = useState(42);
   const [contact, setContact] = useState({});
   const [isContactOnline, setIsContactOnline] = useState(false);
+  const [selectedImage, setselectedImage] = useState(null)
   const [messages, setMessages] = useState([
     { id: "date-1", type: "date", label: "Today" },
   ]);
@@ -383,6 +385,20 @@ export default function ChatScreen() {
     };
   }, [friendId, myId]);
 
+  // ---- image route transfer -----------------
+  useEffect(() => {
+    if (!selectedImage) return;
+
+    router.push({
+      pathname: "/components/ImageView",
+      params: {
+        imageUri: selectedImage,
+      },
+    });
+
+    setselectedImage(null);
+  }, [selectedImage]);
+
   return (
     <SafeAreaView className="flex-1 bg-slate-50">
       {/* Header */}
@@ -488,7 +504,7 @@ export default function ChatScreen() {
             <Pressable className="ml-3 mb-3">
               <Paperclip size={20} color="#94a3b8" />
             </Pressable>
-            <Pressable className="ml-3 mb-3">
+            <Pressable onPress={() => PickImage(setselectedImage)} className="ml-3 mb-3">
               <Camera size={20} color="#94a3b8" />
             </Pressable>
           </View>

@@ -258,8 +258,6 @@ export default function ChatsScreen() {
   const [onlineUserIds, setOnlineUserIds] = useState(new Set());
   const socketRef = useRef(null);
 
-  console.log(friends)
-
   console.log(API_BASE)
 
   // ---- Socket setup ---------------------------------------------------
@@ -337,7 +335,7 @@ export default function ChatsScreen() {
 
     switch (activeFilter) {
       case "unread":
-        result = result.filter((c) => c.unreadCount > 0);
+        result = result.filter((c) => c.unseenCount > 0);
         break;
       case "pinned":
         result = result.filter((c) => c.isPinned);
