@@ -2,17 +2,23 @@ const { Message } = require("../Mongo/Schema");
 
 exports.socketConnection = ({ socket, io, onlineUsers }) => {
     // ---- New message sent -------------------------------------------------
-    socket.on("message", async ({ receiverId, message, outgoingMessage }) => {
-        console.log("Message:", { receiverId, message });
+    socket.on("message", async ({ receiverId, message, image, outgoingMessage }) => {
+        // console.log("Message:", { receiverId, message, image, type: outgoingMessage?.type });
 
-        // Always store the message, even if the receiver is offline —
-        // this is what makes "deliver later" work.
+        const finalImage = image || (outgoingMessage?.type === "image" ? message : "");
+        const finalMessage = message || finalImage || "";
+
         const newMessage = await Message.create({
             senderId: socket.userId,
             receiverId,
-            message,
+            message: finalMessage,
+            image: finalImage,
+            type: outgoingMessage?.type || "text",
             status: "sent",
-            time: outgoingMessage.time,
+            time: outgoingMessage?.time || new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+            }),
         });
 
         const socketIds = onlineUsers.get(receiverId);
@@ -25,11 +31,12 @@ exports.socketConnection = ({ socket, io, onlineUsers }) => {
         // Receiver is online right now — push it to every device/tab they have open.
         for (const socketId of socketIds) {
             io.to(socketId).emit("receive-message", {
-                message,
+                message: finalMessage,
+                image: finalImage,
                 senderId: socket.userId,
                 _id: newMessage._id,
-                time: outgoingMessage.time,
-                type: outgoingMessage.type || "text",
+                time: outgoingMessage?.time || newMessage.time,
+                type: newMessage.type || "text",
             });
         }
     });

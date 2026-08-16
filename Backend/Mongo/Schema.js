@@ -58,6 +58,11 @@ const messageSchema = new mongoose.Schema({
         required: true,
     },
 
+    image: {
+        type: String,
+        default: "",
+    },
+
     status: {
         type: String,
         enum: ["sent", "delivered", "seen"],
@@ -78,7 +83,7 @@ const messageSchema = new mongoose.Schema({
         type: Date,
         default: null
     }
-});
+}, { timestamps: true, });
 
 module.exports = {
     User: mongoose.model("User", userSchema),

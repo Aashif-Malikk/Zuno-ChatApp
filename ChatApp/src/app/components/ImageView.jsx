@@ -1,21 +1,23 @@
-import { View, Text, Image } from 'react-native'
-import React from 'react'
-import { useLocalSearchParams } from 'expo-router';
+import { View, Image, Text } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 
 export default function ImageView() {
     const { imageUri } = useLocalSearchParams();
 
-    console.log("Image:", imageUri);
+    console.log("ImageUri:", imageUri);
+
     return (
-        <View>
-            <Text>ImageView</Text>
-            {/* {imageUri &&
-            } */}
-            <Image
-                source={{ uri: imageUri }}
-                className="w-full h-96"
-                resizeMode="contain"
-            />
+        <View className="flex-1 bg-black items-center justify-center">
+            {imageUri ? (
+                <Image
+                    source={{ uri: imageUri }}
+                    style={{ width: 300, height: 300 }}
+                    onLoad={() => console.log("IMAGE LOADED")}
+                    onError={(e) => console.log("IMAGE ERROR:", e.nativeEvent)}
+                />
+            ) : (
+                <Text className="text-white">No image found</Text>
+            )}
         </View>
-    )
+    );
 }

@@ -1,4 +1,7 @@
+import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
+import { Alert } from "react-native";
+import { API_BASE } from "../../config/api";
 
 const PickImage = (setSelectedImage) => {
   const pickImage = async () => {
@@ -8,12 +11,13 @@ const PickImage = (setSelectedImage) => {
       quality: 1,
     });
 
-    if (!result.canceled) {
-      const imageUri = result.assets[0].uri;
+    if (result.canceled) return Alert.alert("image not selected");
 
-      console.log("Selected image:", imageUri);
-      setSelectedImage(imageUri);
-    }
+    const imageUri = result.assets[0].uri;
+
+    console.log("Selected image:", imageUri);
+    setSelectedImage(imageUri)
+
   };
 
   pickImage();

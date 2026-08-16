@@ -78,6 +78,28 @@ function TextBubble({ chat, myId }) {
 
 function ImageBubble({ message, myId }) {
   const isMe = message.sender === "me" || message.senderId === myId;
+  const [size, setSize] = useState({
+    width: 250,
+    height: 250,
+  });
+
+  useEffect(() => {
+    Image.getSize(message.image, (width, height) => {
+      const maxWidth = 260;
+      const maxHeight = 350;
+
+      const ratio = Math.min(
+        maxWidth / width,
+        maxHeight / height,
+        1
+      );
+
+      setSize({
+        width: width * ratio,
+        height: height * ratio,
+      });
+    });
+  }, [message.image]);
   return (
     <View
       className={`max-w-[80%] mb-4 flex-row items-center ${isMe ? "self-end justify-end" : "self-start"
@@ -86,7 +108,11 @@ function ImageBubble({ message, myId }) {
       <View className="rounded-3xl overflow-hidden border border-slate-100">
         <Image
           source={{ uri: message.image }}
-          className="w-64 h-44"
+          style={{
+            width: size.width,
+            height: size.height,
+            borderRadius: 16,
+          }}
           resizeMode="cover"
         />
         <View className="absolute bottom-2 right-3">
@@ -95,10 +121,6 @@ function ImageBubble({ message, myId }) {
           </Text>
         </View>
       </View>
-
-      <Pressable className="w-9 h-9 rounded-full bg-white border border-slate-200 items-center justify-center ml-2 shadow-sm">
-        <Share2 size={16} color="#2563eb" />
-      </Pressable>
     </View>
   );
 }
@@ -254,31 +276,38 @@ export default function ChatScreen() {
   const keyExtractor = useCallback((item) => item._id ?? item.id, []);
 
   const handleSend = () => {
-    if (!hasDraft || !friendId) return;
-
+    if ((!hasDraft && !selectedImage) || !friendId) return;
     const outgoingMessage = {
       _id: `local-${Math.floor(Date.now() / 1000)}`,
-      type: "text",
-      message: draft.trim(),
       time: new Date().toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
       }),
       sender: "me",
-      senderId: myId, // FIX: previously missing — this is what the
-      // "mark as seen" listener below needs to find and update your own
-      // outgoing messages once the other person has seen them.
+      senderId: myId,
       status: "sent",
+      image: "",
     };
+
+    if (selectedImage) {
+      outgoingMessage.type = "image";
+      outgoingMessage.message = selectedImage;
+      outgoingMessage.image = selectedImage;
+    } else {
+      outgoingMessage.type = "text";
+      outgoingMessage.message = draft.trim();
+    }
 
     setMessages((prev) => [...prev, outgoingMessage]);
     socketRef.current?.emit("message", {
-      message: draft.trim(),
+      message: outgoingMessage.message || draft.trim(),
+      image: outgoingMessage.image || "",
       receiverId: friendId,
       outgoingMessage,
     });
 
     setDraft("");
+    setselectedImage("");
   };
 
   // ---- Socket: live messages, seen receipts, and presence -----------------
@@ -325,7 +354,7 @@ export default function ChatScreen() {
           _id: data._id || `remote-${Date.now()}`,
           type: data.type || "text",
           message: data.message || data.text || "",
-          image: data.image,
+          image: data.image || (data.type === "image" ? data.message : ""),
           duration: data.duration,
           avatar: data.avatar,
           time:
@@ -385,19 +414,11 @@ export default function ChatScreen() {
     };
   }, [friendId, myId]);
 
-  // ---- image route transfer -----------------
   useEffect(() => {
-    if (!selectedImage) return;
-
-    router.push({
-      pathname: "/components/ImageView",
-      params: {
-        imageUri: selectedImage,
-      },
-    });
-
-    setselectedImage(null);
-  }, [selectedImage]);
+    if (selectedImage) {
+      handleSend()
+    }
+  }, [selectedImage])
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50">

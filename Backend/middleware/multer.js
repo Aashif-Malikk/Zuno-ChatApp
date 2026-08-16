@@ -5,7 +5,7 @@ const cloudinary = require('../config/cloudinary')
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder: 'SmileCart/Products',
+    folder: 'Zuno/ChatImage',
     allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
     transformation: [{ quality: 'auto' }, { fetch_format: 'auto' }],
   },
