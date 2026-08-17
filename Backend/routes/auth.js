@@ -5,14 +5,14 @@ const userController = require('../controllers/userController');
 const varifyToken = require('../middleware/tokenMiddleware');
 const upload = require('../middleware/multer');
 
-const handleUpload = (req, res, next) => {
-    upload.single('image')(req, res, (err) => {
-        if (err) {
-            return res.status(400).json({ msg: err.message || 'Upload failed' })
-        }
-        next()
-    })
-}
+// const handleUpload = (req, res, next) => {
+//     upload.single('image')(req, res, (err) => {
+//         if (err) {
+//             return res.status(400).json({ msg: err.message || 'Upload failed' })
+//         }
+//         next()
+//     })
+// }
 
 router.post('/auth/signup', authController.userRegister);
 router.post('/auth/login', authController.userLogin);
@@ -27,5 +27,6 @@ router.post('/add-friend', varifyToken, userController.addFriend);
 router.post('/accept-request', varifyToken, userController.acceptFriendRequest);
 router.post('/delete-request', varifyToken, userController.deleteFriendRequest);
 router.post('/chatPerson', varifyToken, userController.chatPerson);
+router.post('/upload-image', varifyToken, upload.single("image"), userController.getImageUrl);
 
 module.exports = router;

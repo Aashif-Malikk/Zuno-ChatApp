@@ -29,10 +29,19 @@
           "imageWidth": 76
         }
       ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow Zuno to access your microphone to record voice messages.",
+          "recordAudioAndroid": true
+        }
+      ],
       "expo-status-bar",
       "expo-font",
       "expo-secure-store",
-      "expo-notifications"
+      "expo-notifications",
+      "expo-image",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

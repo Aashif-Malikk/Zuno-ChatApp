@@ -1,3 +1,4 @@
+const cloudinary = require("../config/cloudinary");
 const { User, Message } = require("../Mongo/Schema");
 
 exports.getAllUsers = async (req, res) => {
@@ -251,6 +252,40 @@ exports.chatPerson = async (req, res) => {
     } catch (error) {
         console.error("Get Chat Person error:", error);
         return res.status(500).json({ success: false, message: "Error fetching Person" });
+    }
+}
+
+exports.getImageUrl = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "No image uploaded",
+            });
+        }
+
+        const result = await cloudinary.uploader.upload(
+            req.file.path,
+            { folder: "Zuno/ChatImage" }
+        );
+
+        return res.status(200).json({
+            success: true,
+            url: result.secure_url,
+        });
+
+    } catch (error) {
+        // FIX: log the REAL underlying error, not just a generic message —
+        // Cloudinary/multer errors get swallowed otherwise, and you're
+        // stuck guessing what actually failed.
+        console.error("Cloudinary upload error:", error.message, error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Image upload failed",
+            // Only include this in development — don't leak internals in prod:
+            detail: process.env.NODE_ENV !== "production" ? error.message : undefined,
+        });
     }
 }
 

@@ -1,4 +1,5 @@
 const { Message } = require("../Mongo/Schema");
+const cloudinary = require('./cloudinary')
 
 exports.socketConnection = ({ socket, io, onlineUsers }) => {
     // ---- New message sent -------------------------------------------------
@@ -7,6 +8,8 @@ exports.socketConnection = ({ socket, io, onlineUsers }) => {
 
         const finalImage = image || (outgoingMessage?.type === "image" ? message : "");
         const finalMessage = message || finalImage || "";
+
+        console.log(finalImage)
 
         const newMessage = await Message.create({
             senderId: socket.userId,

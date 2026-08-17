@@ -8,6 +8,7 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -17,7 +18,6 @@ import {
   Video,
   MoreVertical,
   Lock,
-  Share2,
   Play,
   Mic,
   Plus,
@@ -27,15 +27,15 @@ import {
   Send,
   Check,
   CheckCheck,
+  Pause,
 } from "lucide-react-native";
 import * as SecureStore from "expo-secure-store";
 import axios from "axios";
 import { API_BASE } from "../../config/api";
 import { io } from "socket.io-client";
 import PickImage from "../components/PickImage";
-
-// Requires: npm install lucide-react-native react-native-svg
-// Route: app/chat/[id].tsx
+import useVoiceRecorder from "../components/VoiceRecorder";
+import UseVoicePlayer from '../components/UseVoicePlayer'
 
 // ---- Sub-components (unchanged) -------------------------------------------
 function DateSeparator({ label }) {
@@ -78,28 +78,17 @@ function TextBubble({ chat, myId }) {
 
 function ImageBubble({ message, myId }) {
   const isMe = message.sender === "me" || message.senderId === myId;
-  const [size, setSize] = useState({
-    width: 250,
-    height: 250,
-  });
+  const [size, setSize] = useState({ width: 250, height: 250 });
 
   useEffect(() => {
     Image.getSize(message.image, (width, height) => {
       const maxWidth = 260;
       const maxHeight = 350;
-
-      const ratio = Math.min(
-        maxWidth / width,
-        maxHeight / height,
-        1
-      );
-
-      setSize({
-        width: width * ratio,
-        height: height * ratio,
-      });
+      const ratio = Math.min(maxWidth / width, maxHeight / height, 1);
+      setSize({ width: width * ratio, height: height * ratio });
     });
   }, [message.image]);
+
   return (
     <View
       className={`max-w-[80%] mb-4 flex-row items-center ${isMe ? "self-end justify-end" : "self-start"
@@ -108,11 +97,7 @@ function ImageBubble({ message, myId }) {
       <View className="rounded-3xl overflow-hidden border border-slate-100">
         <Image
           source={{ uri: message.image }}
-          style={{
-            width: size.width,
-            height: size.height,
-            borderRadius: 16,
-          }}
+          style={{ width: size.width, height: size.height, borderRadius: 16 }}
           resizeMode="cover"
         />
         <View className="absolute bottom-2 right-3">
@@ -127,14 +112,35 @@ function ImageBubble({ message, myId }) {
 
 function VoiceBubble({ message, myId }) {
   const isMe = message.sender === "me" || message.senderId === myId;
+
+  const {
+    playVoice,
+    pauseVoice,
+    player,
+  } = UseVoicePlayer(message.audio);
+
+  const isPlaying = player?.playing;
+
   return (
-    <View className={`max-w-[85%] mb-4 ${isMe ? "self-end" : "self-start"}`}>
+    <View
+      className={`w-80 mb-4 ${isMe ? "self-end" : "self-start"
+        }`}
+    >
       <View
-        className={`flex-row items-center rounded-3xl px-4 py-3 ${isMe ? "bg-blue-100" : "bg-white border border-slate-100"
+        className={`flex-row items-center rounded-3xl px-4 py-3 ${isMe
+          ? "bg-blue-100"
+          : "bg-white border border-slate-100"
           }`}
       >
-        <Pressable className="w-10 h-10 rounded-full bg-blue-600 items-center justify-center mr-3">
-          <Play size={16} color="white" fill="white" />
+        <Pressable
+          onPress={isPlaying ? pauseVoice : playVoice}
+          className="w-10 h-10 rounded-full bg-blue-600 items-center justify-center mr-3"
+        >
+          {isPlaying ? (
+            <Pause size={16} color="white" fill="white" />
+          ) : (
+            <Play size={16} color="white" fill="white" />
+          )}
         </Pressable>
 
         <View className="flex-1">
@@ -147,19 +153,15 @@ function VoiceBubble({ message, myId }) {
               />
             ))}
           </View>
-          <View className="flex-row items-center justify-between mt-1">
-            <Text className="text-xs text-slate-400">{message.duration}</Text>
-            <Text className="text-xs text-slate-400">{message.time}</Text>
-          </View>
-        </View>
 
-        <View className="relative ml-3">
-          <Image
-            source={{ uri: message.avatar }}
-            className="w-9 h-9 rounded-full"
-          />
-          <View className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white items-center justify-center border border-slate-100">
-            <Mic size={10} color="#2563eb" />
+          <View className="flex-row items-center justify-between mt-1">
+            <Text className="text-xs text-slate-400">
+              {message.duration}
+            </Text>
+
+            <Text className="text-xs text-slate-400">
+              {message.time}
+            </Text>
           </View>
         </View>
       </View>
@@ -168,8 +170,9 @@ function VoiceBubble({ message, myId }) {
 }
 
 const DEFAULT_WAVEFORM = [
-  6, 14, 9, 20, 12, 24, 10, 18, 8, 22, 14, 10, 16, 9, 20, 12, 8, 15, 10, 18, 7,
-  13, 9, 16, 11,
+  6, 14, 9, 20, 12, 24, 10, 18, 8, 22,
+  14, 10, 16, 9, 20, 12, 8, 15, 10, 18,
+  7, 13, 9, 16, 11,
 ];
 
 function MessageItem({ myId, item }) {
@@ -185,8 +188,6 @@ function MessageItem({ myId, item }) {
   }
 }
 
-// Fetches: who the other person is, the message history, and my own user id
-// (needed so we can tell "my messages" apart from "their messages" in the UI).
 const fetchChatPersonAndHistory = async (friendId) => {
   try {
     const token = await SecureStore.getItemAsync("token");
@@ -222,37 +223,92 @@ export default function ChatScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
 
-  // The id of the PERSON YOU'RE CHATTING WITH (from the route), not a
-  // conversation id and not your own id.
   const friendId = id ? JSON.parse(id) : null;
 
   const [draft, setDraft] = useState("");
   const [inputHeight, setInputHeight] = useState(42);
   const [contact, setContact] = useState({});
   const [isContactOnline, setIsContactOnline] = useState(false);
-  const [selectedImage, setselectedImage] = useState(null)
+  const [selectedImage, setselectedImage] = useState(null);
+  const [recording, setRecording] = useState(false);
   const [messages, setMessages] = useState([
     { id: "date-1", type: "date", label: "Today" },
   ]);
   const socketRef = useRef(null);
-
   const flatListRef = useRef(null);
+  const [myId, setMyId] = useState("");
+
+  const hasDraft = draft.trim().length > 0;
+
+  const {
+    isRecording,
+    toggleRecording,
+  } = useVoiceRecorder();
+  // -------------------- Voice Message ------------------//
+  const handleMicPress = async () => {
+    const result = await toggleRecording();
+
+    console.log("Voice result:", result);
+
+    if (!result) {
+      Alert.alert("Something went wrong", "Couldn't access the microphone.");
+      setRecording(false);
+      return;
+    }
+
+    if (result.error === "permission_denied") {
+      Alert.alert(
+        "Microphone access needed",
+        "Enable microphone permission in settings to send voice messages."
+      );
+      return;
+    }
+
+    if (result.error) {
+      Alert.alert("Something went wrong", "Couldn't record that voice message.");
+      setRecording(false);
+      return;
+    }
+
+    // FIX: first press — recording has just STARTED. There was previously
+    // no branch for this case, so it fell straight through to the
+    // "recording stopped" logic below and pushed a broken voice message
+    // (no uri, no duration) into the chat immediately on the first tap,
+    // and `recording` never flipped to true so the button never turned red.
+    if (result.isRecording) {
+      setRecording(true);
+      return;
+    }
+
+    // Second press — recording has stopped, we have the local file
+    setRecording(false);
+
+    const voiceMessage = {
+      _id: `local-${Date.now()}`,
+      type: "voice",
+      sender: "me",
+      uri: result.uri, // local file — send this to Cloudinary/your backend later
+      duration: result.duration,
+      time: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      status: "sent",
+    };
+
+    setMessages((prev) => [...prev, voiceMessage]);
+
+    // TODO (not part of this step): upload voiceMessage.uri to Cloudinary,
+    // then emit it over the socket the same way handleSend() does for text.
+  };
 
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => {
-        flatListRef.current?.scrollToEnd({
-          animated: true,
-        });
+        flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
   }, [messages]);
-
-  // Your OWN logged-in user id — previously (confusingly) called `senderID`,
-  // even though it never held a message sender's id, only your own.
-  const [myId, setMyId] = useState("");
-
-  const hasDraft = draft.trim().length > 0;
 
   // ---- Fetch contact info + message history -------------------------------
   useEffect(() => {
@@ -275,44 +331,83 @@ export default function ChatScreen() {
   );
   const keyExtractor = useCallback((item) => item._id ?? item.id, []);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if ((!hasDraft && !selectedImage) || !friendId) return;
-    const outgoingMessage = {
-      _id: `local-${Math.floor(Date.now() / 1000)}`,
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      sender: "me",
-      senderId: myId,
-      status: "sent",
-      image: "",
-    };
 
-    if (selectedImage) {
-      outgoingMessage.type = "image";
-      outgoingMessage.message = selectedImage;
-      outgoingMessage.image = selectedImage;
-    } else {
-      outgoingMessage.type = "text";
-      outgoingMessage.message = draft.trim();
+    try {
+      const token = await SecureStore.getItemAsync("token");
+      let imageUrl = "";
+
+      // 1. Upload image first
+      if (selectedImage) {
+        const formData = new FormData();
+        formData.append("image", {
+          uri: selectedImage,
+          name: "chat-image.jpg",
+          type: "image/jpeg",
+        });
+
+        const response = await axios.post(`${API_BASE}/upload-image`, formData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        });
+
+        imageUrl = response.data.url;
+      }
+
+      // 2. Create message
+      const outgoingMessage = {
+        _id: `local-${Date.now()}`,
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        sender: "me",
+        senderId: myId,
+        receiverId: friendId,
+        status: "sent",
+        type: selectedImage ? "image" : "text",
+        message: selectedImage ? "" : draft.trim(),
+        image: imageUrl || selectedImage,
+      };
+
+      // 3. Show immediately in your own chat
+      setMessages((prev) => [...prev, outgoingMessage]);
+
+      // 4. Send ONLY the Cloudinary URL through Socket.IO
+      socketRef.current?.emit("message", {
+        message: outgoingMessage.message,
+        image: imageUrl,
+        type: outgoingMessage.type,
+        receiverId: friendId,
+        outgoingMessage,
+      });
+
+      setDraft("");
+      setselectedImage("");
+    } catch (error) {
+      // FIX: this is what was missing — without a catch, a failed request
+      // (like your 500) becomes an unhandled promise rejection instead of
+      // a normal, recoverable error.
+      console.error(
+        "Failed to send message:",
+        error.response?.data || error.message
+      );
+
+      Alert.alert(
+        "Message not sent",
+        selectedImage
+          ? "Couldn't upload that image. Please try again."
+          : "Couldn't send your message. Please try again."
+      );
+
+      // Don't clear the draft/image on failure — let the user retry
+      // instead of silently losing what they typed/picked.
     }
-
-    setMessages((prev) => [...prev, outgoingMessage]);
-    socketRef.current?.emit("message", {
-      message: outgoingMessage.message || draft.trim(),
-      image: outgoingMessage.image || "",
-      receiverId: friendId,
-      outgoingMessage,
-    });
-
-    setDraft("");
-    setselectedImage("");
   };
 
   // ---- Socket: live messages, seen receipts, and presence -----------------
   useEffect(() => {
-    if (!friendId || !myId) return; // wait until we actually know both ids
+    if (!friendId || !myId) return;
 
     let mounted = true;
     let socket;
@@ -327,24 +422,17 @@ export default function ChatScreen() {
       });
       socketRef.current = socket;
 
-      // FIX: fire on every successful connect (including reconnects), not
-      // tied to the `messages` array changing. This is what actually marks
-      // any messages that arrived while you were offline as "seen" the
-      // moment you open this chat screen.
       socket.on("connect", () => {
         socket.emit("message:seen", {
-          senderId: friendId, // messages sent BY the person you're chatting with
-          receiverId: myId, // ...that YOU have now seen
+          senderId: friendId,
+          receiverId: myId,
         });
       });
 
-      // A new message arrives while this chat screen is open.
       socket.on("receive-message", (data) => {
         if (!mounted) return;
-        if (data.senderId !== friendId) return; // not this conversation — ignore
+        if (data.senderId !== friendId) return;
 
-        // Real-time case: you're looking at the chat right now, so
-        // immediately tell the server you've seen it.
         socket.emit("message:seen", {
           senderId: friendId,
           receiverId: myId,
@@ -365,19 +453,14 @@ export default function ChatScreen() {
             }),
           sender: "other",
           senderId: data.senderId,
-          status: "seen", // you saw it the instant it arrived
+          status: "seen",
         };
         setMessages((prev) => [...prev, incomingMessage]);
       });
 
-      // The other person has just seen the messages YOU sent them.
-      // FIX: was comparing `msg.senderId === data.receiverId`, but outgoing
-      // messages never had a `senderId` set, so this never matched anything.
-      // Now that handleSend() tags outgoing messages with `senderId: myId`,
-      // and we only update messages that belong to THIS open conversation.
       socket.on("message:marked-seen", (data) => {
         if (!mounted) return;
-        if (data.receiverId !== friendId) return; // seen-event for a different chat
+        if (data.receiverId !== friendId) return;
 
         setMessages((prev) =>
           prev.map((msg) =>
@@ -416,9 +499,9 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (selectedImage) {
-      handleSend()
+      handleSend();
     }
-  }, [selectedImage])
+  }, [selectedImage]);
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50">
@@ -485,14 +568,9 @@ export default function ChatScreen() {
           renderItem={renderItem}
           keyExtractor={keyExtractor}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingHorizontal: 20,
-            paddingBottom: 8,
-          }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 8 }}
           onContentSizeChange={() => {
-            flatListRef.current?.scrollToEnd({
-              animated: true,
-            });
+            flatListRef.current?.scrollToEnd({ animated: true });
           }}
         />
 
@@ -525,14 +603,18 @@ export default function ChatScreen() {
             <Pressable className="ml-3 mb-3">
               <Paperclip size={20} color="#94a3b8" />
             </Pressable>
-            <Pressable onPress={() => PickImage(setselectedImage)} className="ml-3 mb-3">
+            <Pressable
+              onPress={() => PickImage(setselectedImage)}
+              className="ml-3 mb-3"
+            >
               <Camera size={20} color="#94a3b8" />
             </Pressable>
           </View>
 
           <Pressable
-            onPress={handleSend}
-            className="w-11 h-11 rounded-full bg-blue-600 items-center justify-center ml-2"
+            onPress={hasDraft ? handleSend : handleMicPress}
+            className={`w-11 h-11 rounded-full items-center justify-center ml-2 ${recording ? "bg-red-500" : "bg-blue-600"
+              }`}
           >
             {hasDraft ? (
               <Send size={18} color="white" />
