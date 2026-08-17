@@ -35,7 +35,7 @@ import { API_BASE } from "../../config/api";
 import { io } from "socket.io-client";
 import PickImage from "../components/PickImage";
 import useVoiceRecorder from "../components/VoiceRecorder";
-import UseVoicePlayer from '../components/UseVoicePlayer'
+import useVoicePlayer from "../components/UseVoicePlayer";
 
 // ---- Sub-components (unchanged) -------------------------------------------
 function DateSeparator({ label }) {
@@ -113,13 +113,9 @@ function ImageBubble({ message, myId }) {
 function VoiceBubble({ message, myId }) {
   const isMe = message.sender === "me" || message.senderId === myId;
 
-  const {
-    playVoice,
-    pauseVoice,
-    player,
-  } = UseVoicePlayer(message.audio);
+  const { playVoice, pauseVoice, player } = useVoicePlayer(message.audio);
 
-  const isPlaying = player?.playing;
+  // console.log(message)
 
   return (
     <View
@@ -133,18 +129,14 @@ function VoiceBubble({ message, myId }) {
           }`}
       >
         <Pressable
-          onPress={isPlaying ? pauseVoice : playVoice}
+          onPress={player.playing ? pauseVoice : playVoice}
           className="w-10 h-10 rounded-full bg-blue-600 items-center justify-center mr-3"
         >
-          {isPlaying ? (
-            <Pause size={16} color="white" fill="white" />
-          ) : (
-            <Play size={16} color="white" fill="white" />
-          )}
+          {player.playing ? <Pause size={16} color="white" /> : <Play size={16} color="white" fill="white" />}
         </Pressable>
 
-        <View className="flex-1">
-          <View className="flex-row items-end h-6">
+        <View className="flex-1 content-center align-middle">
+          <View className="flex-row items-end content-center align-middle h-6">
             {(message.waveform || DEFAULT_WAVEFORM).map((h, i) => (
               <View
                 key={i}
@@ -154,17 +146,16 @@ function VoiceBubble({ message, myId }) {
             ))}
           </View>
 
-          <View className="flex-row items-center justify-between mt-1">
-            <Text className="text-xs text-slate-400">
-              {message.duration}
-            </Text>
-
-            <Text className="text-xs text-slate-400">
-              {message.time}
-            </Text>
-          </View>
+        </View>
+        <View className="flex-row items-center justify-between mt-1">
+          <Text className="text-xs text-black font-semibold">
+            {message.duration}
+          </Text>
         </View>
       </View>
+      <Text className="text-xs text-slate-400 self-end">
+        {message.time}
+      </Text>
     </View>
   );
 }
@@ -230,7 +221,7 @@ export default function ChatScreen() {
   const [contact, setContact] = useState({});
   const [isContactOnline, setIsContactOnline] = useState(false);
   const [selectedImage, setselectedImage] = useState(null);
-  const [recording, setRecording] = useState(false);
+  const { isRecording, toggleRecording } = useVoiceRecorder();
   const [messages, setMessages] = useState([
     { id: "date-1", type: "date", label: "Today" },
   ]);
@@ -240,66 +231,95 @@ export default function ChatScreen() {
 
   const hasDraft = draft.trim().length > 0;
 
-  const {
-    isRecording,
-    toggleRecording,
-  } = useVoiceRecorder();
   // -------------------- Voice Message ------------------//
   const handleMicPress = async () => {
     const result = await toggleRecording();
 
-    console.log("Voice result:", result);
+    console.log("result", result)
 
-    if (!result) {
-      Alert.alert("Something went wrong", "Couldn't access the microphone.");
-      setRecording(false);
+    if (!result?.success) {
+      if (result?.error === "permission_denied") {
+        Alert.alert(
+          "Microphone access needed",
+          "Enable microphone permission in settings to send voice messages."
+        );
+      } else {
+        Alert.alert("Voice message failed", "Could not record audio.");
+      }
       return;
     }
 
-    if (result.error === "permission_denied") {
-      Alert.alert(
-        "Microphone access needed",
-        "Enable microphone permission in settings to send voice messages."
-      );
-      return;
-    }
-
-    if (result.error) {
-      Alert.alert("Something went wrong", "Couldn't record that voice message.");
-      setRecording(false);
-      return;
-    }
-
-    // FIX: first press — recording has just STARTED. There was previously
-    // no branch for this case, so it fell straight through to the
-    // "recording stopped" logic below and pushed a broken voice message
-    // (no uri, no duration) into the chat immediately on the first tap,
-    // and `recording` never flipped to true so the button never turned red.
+    // FIX: check isRecording FIRST. On the start branch there's no uri yet,
+    // so checking for a uri before this was firing a false "no audio
+    // produced" error on every single first press.
     if (result.isRecording) {
-      setRecording(true);
+      return; // recording has started — nothing else to do yet
+    }
+
+    // We've stopped — now we should actually have a uri
+    const localUri = result.uri;
+    if (!localUri) {
+      Alert.alert("Voice message failed", "No audio file was produced.");
       return;
     }
 
-    // Second press — recording has stopped, we have the local file
-    setRecording(false);
+    try {
+      const token = await SecureStore.getItemAsync("token");
 
-    const voiceMessage = {
-      _id: `local-${Date.now()}`,
-      type: "voice",
-      sender: "me",
-      uri: result.uri, // local file — send this to Cloudinary/your backend later
-      duration: result.duration,
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      status: "sent",
-    };
+      const formData = new FormData();
 
-    setMessages((prev) => [...prev, voiceMessage]);
+      formData.append("audio", {
+        uri: result.uri,
+        name: `recording-${Date.now()}.m4a`,
+        type: "audio/m4a",
+      });
 
-    // TODO (not part of this step): upload voiceMessage.uri to Cloudinary,
-    // then emit it over the socket the same way handleSend() does for text.
+
+      const response = await axios.post(
+        `${API_BASE}/upload-audio`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      console.log("Audio URL:", response.data.url);
+
+      const uploadedUri = response.data.url;
+      console.log(uploadedUri)
+      const voiceMessage = {
+        _id: `local-${Date.now()}`,
+        type: "voice",
+        sender: "me",
+        senderId: myId,
+        audio: uploadedUri,
+        duration: result.duration,
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        status: "sent",
+      };
+
+      setMessages((prev) => [...prev, voiceMessage]);
+
+      socketRef.current?.emit("message", {
+        message: "",
+        audioUrl: uploadedUri,
+        type: voiceMessage.type,
+        receiverId: friendId,
+        voiceMessage,
+      });
+    } catch (error) {
+      console.error(
+        "Failed to send voice message:",
+        error.response?.data || error.message
+      );
+      Alert.alert("Message not sent", "Couldn't send voice message. Please try again.");
+    }
   };
 
   useEffect(() => {
@@ -443,6 +463,7 @@ export default function ChatScreen() {
           type: data.type || "text",
           message: data.message || data.text || "",
           image: data.image || (data.type === "image" ? data.message : ""),
+          audio: data.audioUrl || (data.type === "voice" ? data.message : ""),
           duration: data.duration,
           avatar: data.avatar,
           time:
@@ -613,7 +634,7 @@ export default function ChatScreen() {
 
           <Pressable
             onPress={hasDraft ? handleSend : handleMicPress}
-            className={`w-11 h-11 rounded-full items-center justify-center ml-2 ${recording ? "bg-red-500" : "bg-blue-600"
+            className={`w-11 h-11 rounded-full items-center justify-center ml-2 ${isRecording ? "bg-red-500" : "bg-blue-600"
               }`}
           >
             {hasDraft ? (

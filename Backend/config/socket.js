@@ -3,25 +3,27 @@ const cloudinary = require('./cloudinary')
 
 exports.socketConnection = ({ socket, io, onlineUsers }) => {
     // ---- New message sent -------------------------------------------------
-    socket.on("message", async ({ receiverId, message, image, outgoingMessage }) => {
+    socket.on("message", async ({ receiverId, message, image, outgoingMessage, voiceMessage, audioUrl }) => {
         // console.log("Message:", { receiverId, message, image, type: outgoingMessage?.type });
 
         const finalImage = image || (outgoingMessage?.type === "image" ? message : "");
         const finalMessage = message || finalImage || "";
 
-        console.log(finalImage)
+        const audio = (voiceMessage && audioUrl) ? audioUrl : ""
 
         const newMessage = await Message.create({
             senderId: socket.userId,
             receiverId,
             message: finalMessage,
             image: finalImage,
-            type: outgoingMessage?.type || "text",
+            audio: audio,
+            type: outgoingMessage?.type || voiceMessage?.type || "text",
             status: "sent",
             time: outgoingMessage?.time || new Date().toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
             }),
+            duration: voiceMessage.duration
         });
 
         const socketIds = onlineUsers.get(receiverId);

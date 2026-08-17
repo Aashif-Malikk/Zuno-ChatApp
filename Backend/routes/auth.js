@@ -3,7 +3,8 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 const userController = require('../controllers/userController');
 const varifyToken = require('../middleware/tokenMiddleware');
-const upload = require('../middleware/multer');
+const { upload, audioUpload } = require('../middleware/multer');
+// const audioUpload = require('../middleware/multer');
 
 // const handleUpload = (req, res, next) => {
 //     upload.single('image')(req, res, (err) => {
@@ -28,5 +29,14 @@ router.post('/accept-request', varifyToken, userController.acceptFriendRequest);
 router.post('/delete-request', varifyToken, userController.deleteFriendRequest);
 router.post('/chatPerson', varifyToken, userController.chatPerson);
 router.post('/upload-image', varifyToken, upload.single("image"), userController.getImageUrl);
+router.post('/upload-audio', varifyToken, (req, res, next) => {
+  audioUpload.single("audio")(req, res, (err) => {
+    if (err) {
+      console.error("Audio multer/storage error:", err);
+      return res.status(400).json({ success: false, message: err.message || "Audio upload failed" });
+    }
+    next();
+  });
+}, userController.uploadAudio)
 
 module.exports = router;

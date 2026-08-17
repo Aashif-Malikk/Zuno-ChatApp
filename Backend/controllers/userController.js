@@ -289,3 +289,33 @@ exports.getImageUrl = async (req, res) => {
     }
 }
 
+exports.uploadAudio = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "No audio uploaded",
+            });
+        }
+
+        // multer-storage-cloudinary sets req.file.path to the Cloudinary secure_url
+        console.log("Uploaded audio file:", JSON.stringify(req.file, null, 2));
+
+        const url = req.file.path || req.file.secure_url;
+
+        return res.status(200).json({
+            success: true,
+            url,
+        });
+
+    } catch (error) {
+        console.error("Audio upload error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Audio upload failed",
+            detail: process.env.NODE_ENV !== "production" ? error.message : undefined,
+        });
+    }
+};
+

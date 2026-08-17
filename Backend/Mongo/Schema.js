@@ -55,12 +55,22 @@ const messageSchema = new mongoose.Schema({
 
     message: {
         type: String,
-        required: true,
+        default: "",
     },
 
     image: {
         type: String,
         default: "",
+    },
+
+    audio: {
+        type: String,
+        default: ""
+    },
+
+    duration: {
+        type: String,
+        default: "0"
     },
 
     status: {
