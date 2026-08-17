@@ -281,7 +281,11 @@ export default function ChatScreen() {
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
+            // NOTE: do NOT set Content-Type here.
+            // React Native sets it automatically with the correct
+            // multipart boundary. Setting it manually removes the
+            // boundary, which makes the server unable to parse the
+            // body and causes a "Network Error".
           },
         }
       );
@@ -370,7 +374,7 @@ export default function ChatScreen() {
         const response = await axios.post(`${API_BASE}/upload-image`, formData, {
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
+            // NOTE: do NOT set Content-Type here — same reason as audio upload.
           },
         });
 
