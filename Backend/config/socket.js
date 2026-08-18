@@ -11,6 +11,8 @@ exports.socketConnection = ({ socket, io, onlineUsers }) => {
 
         const audio = (voiceMessage && audioUrl) ? audioUrl : ""
 
+        const duration = (voiceMessage && audioUrl) ? voiceMessage.duration : "0"
+
         const newMessage = await Message.create({
             senderId: socket.userId,
             receiverId,
@@ -23,7 +25,7 @@ exports.socketConnection = ({ socket, io, onlineUsers }) => {
                 hour: "2-digit",
                 minute: "2-digit",
             }),
-            duration: voiceMessage.duration || "0"
+            duration: duration
         });
 
         const socketIds = onlineUsers.get(receiverId);
