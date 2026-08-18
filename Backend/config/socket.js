@@ -23,7 +23,7 @@ exports.socketConnection = ({ socket, io, onlineUsers }) => {
                 hour: "2-digit",
                 minute: "2-digit",
             }),
-            duration: voiceMessage.duration
+            duration: voiceMessage.duration || "0"
         });
 
         const socketIds = onlineUsers.get(receiverId);
