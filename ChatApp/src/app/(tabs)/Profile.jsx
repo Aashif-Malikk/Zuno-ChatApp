@@ -112,9 +112,9 @@ export default function ProfileScreen({ navigation }) {
   const handleAccountPress = (key) => {
     // TODO: navigate to the relevant screen, e.g. navigation.navigate(key)
     console.log("Account item pressed:", key);
-    // if (key == 'notifications') {
-    //   router.push('/(comp)/Notification')
-    // }
+    if (key == 'edit') {
+      router.push('/(profile-setting)/EditProfile')
+    }
   };
 
   const handleMorePress = async (key) => {

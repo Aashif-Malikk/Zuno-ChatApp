@@ -129,8 +129,7 @@ const Groups = () => {
           <Text className="text-3xl font-extrabold text-slate-900">Groups</Text>
         </View>
 
-        {/* Section header */}
-        <View className="flex-row items-center justify-between mb-2">
+        {/* <View className="flex-row items-center justify-between mb-2">
           <Text className="text-lg font-bold text-slate-900">
             All Groups
           </Text>
@@ -150,7 +149,11 @@ const Groups = () => {
               </Text>
             </View>
           }
-        />
+        /> */}
+
+        <View className='flex-1 justify-center content-center'>
+            <Text className='font-semibold text-center text-slate-600'>This page has not been completed yet, but work is ongoing 😊.</Text>
+        </View>
       </View>
       {/* <Text>Groups</Text> */}
     </SafeAreaView>

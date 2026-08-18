@@ -109,7 +109,7 @@ function ChatRow({ chat, isLast, isOnline }) {
               }`}
             numberOfLines={1}
           >
-            {chat.lastMessage !== null ? (chat.lastMessage.type !== "image" ? chat.lastMessage.message : "image") : "no message"}
+            {chat.lastMessage !== null ? (chat.lastMessage.type == "image" ? "image" : chat.lastMessage.type == "voice" ? "voice message" : chat.lastMessage.message) : "no message"}
           </Text>
         )}
       </View>

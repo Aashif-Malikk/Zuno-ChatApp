@@ -319,3 +319,64 @@ exports.uploadAudio = async (req, res) => {
     }
 };
 
+exports.updateProfile = async (req, res) => {
+    try {
+        const userId = req.userId;
+
+        const updateData = {};
+
+        // Update username only if provided
+        if (req.body.username !== undefined && req.body.username !== "") {
+            updateData.name = req.body.username;
+        }
+
+        // Update email only if provided
+        if (req.body.email !== undefined && req.body.email !== "") {
+            updateData.email = req.body.email;
+        }
+
+        // Update avatar only if a new image was uploaded
+        if (req.file) {
+            updateData.avatar = req.file.path;
+        }
+
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { $set: updateData },
+            {
+                new: true,
+                runValidators: true,
+            }
+        ).select("-password");
+
+        if (!updatedUser) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile updated successfully",
+            user: updatedUser,
+        });
+
+    } catch (error) {
+        console.error("Update profile error:", error);
+
+        // Handles duplicate email/unique field
+        if (error.code === 11000) {
+            return res.status(409).json({
+                success: false,
+                message: "Email already exists",
+            });
+        }
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to update profile",
+        });
+    }
+};
+
