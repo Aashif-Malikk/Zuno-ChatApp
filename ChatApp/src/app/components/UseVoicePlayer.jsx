@@ -1,12 +1,12 @@
-// useVoicePlayer.js (renamed from UseVoicePlayer.js)
-import { useAudioPlayer } from "expo-audio";
+import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 
 export default function useVoicePlayer(uri) {
   const player = useAudioPlayer(uri);
+  const status = useAudioPlayerStatus(player);
 
   const playVoice = () => {
     if (!uri) return;
-    player.seekTo(0);
+
     player.play();
   };
 
@@ -14,5 +14,10 @@ export default function useVoicePlayer(uri) {
     player.pause();
   };
 
-  return { playVoice, pauseVoice, player };
+  return {
+    playVoice,
+    pauseVoice,
+    player,
+    playing: status.playing,
+  };
 }

@@ -112,31 +112,32 @@ function ImageBubble({ message, myId }) {
 
 function VoiceBubble({ message, myId }) {
   const isMe = message.sender === "me" || message.senderId === myId;
-  const [isPlay, setIsPlay] = useState(false)
 
-  const { playVoice, pauseVoice, player } = useVoicePlayer(message.audio);
-
-  useEffect(() => {
-    setIsPlay(isPlay ? false : true)
-  }, [player.playing])
+  const {
+    playVoice,
+    pauseVoice,
+    playing,
+  } = useVoicePlayer(message.audio);
 
   return (
     <View className={`w-80 mb-4 ${isMe ? "self-end" : "self-start"}`}>
       <View
-        className={`flex-row items-center rounded-3xl px-4 py-3 ${isMe ? "bg-blue-100" : "bg-white border border-slate-100"
+        className={`flex-row items-center rounded-3xl px-4 py-3 ${isMe
+            ? "bg-blue-100"
+            : "bg-white border border-slate-100"
           }`}
       >
-        {/* Play / Pause button */}
         <Pressable
-          onPress={!isPlay ? pauseVoice : playVoice}
+          onPress={playing ? pauseVoice : playVoice}
           className="w-10 h-10 rounded-full bg-blue-600 items-center justify-center mr-3"
         >
-          {!isPlay
-            ? <Pause size={16} color="white" />
-            : <Play size={16} color="white" fill="white" />}
+          {playing ? (
+            <Pause size={16} color="white" />
+          ) : (
+            <Play size={16} color="white" fill="white" />
+          )}
         </Pressable>
 
-        {/* Waveform + duration in one column */}
         <View className="flex-1">
           <View className="flex-row items-end h-6">
             {(message.waveform || DEFAULT_WAVEFORM).map((h, i) => (
@@ -152,6 +153,7 @@ function VoiceBubble({ message, myId }) {
             <Text className="text-xs text-slate-600 font-semibold">
               {message.duration ?? "0:00"}
             </Text>
+
             <Text className="text-xs text-slate-400">
               {message.time}
             </Text>
