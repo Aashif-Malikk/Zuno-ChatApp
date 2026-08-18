@@ -112,53 +112,56 @@ function ImageBubble({ message, myId }) {
 
 function VoiceBubble({ message, myId }) {
   const isMe = message.sender === "me" || message.senderId === myId;
+  const [isPlay, setIsPlay] = useState(false)
 
   const { playVoice, pauseVoice, player } = useVoicePlayer(message.audio);
 
-  // console.log(message)
+  useEffect(() => {
+    setIsPlay(isPlay ? false : true)
+  }, [player.playing])
 
   return (
-    <View
-      className={`w-80 mb-4 ${isMe ? "self-end" : "self-start"
-        }`}
-    >
+    <View className={`w-80 mb-4 ${isMe ? "self-end" : "self-start"}`}>
       <View
-        className={`flex-row items-center rounded-3xl px-4 py-3 ${isMe
-          ? "bg-blue-100"
-          : "bg-white border border-slate-100"
+        className={`flex-row items-center rounded-3xl px-4 py-3 ${isMe ? "bg-blue-100" : "bg-white border border-slate-100"
           }`}
       >
+        {/* Play / Pause button */}
         <Pressable
-          onPress={player.playing ? pauseVoice : playVoice}
+          onPress={!isPlay ? pauseVoice : playVoice}
           className="w-10 h-10 rounded-full bg-blue-600 items-center justify-center mr-3"
         >
-          {player.playing ? <Pause size={16} color="white" /> : <Play size={16} color="white" fill="white" />}
+          {!isPlay
+            ? <Pause size={16} color="white" />
+            : <Play size={16} color="white" fill="white" />}
         </Pressable>
 
-        <View className="flex-1 content-center align-middle">
-          <View className="flex-row items-end content-center align-middle h-6">
+        {/* Waveform + duration in one column */}
+        <View className="flex-1">
+          <View className="flex-row items-end h-6">
             {(message.waveform || DEFAULT_WAVEFORM).map((h, i) => (
               <View
                 key={i}
                 style={{ height: h }}
-                className="w-1 bg-blue-300 rounded-full mr-1"
+                className="w-1 bg-blue-400 rounded-full mr-0.5"
               />
             ))}
           </View>
 
-        </View>
-        <View className="flex-row items-center justify-between mt-1">
-          <Text className="text-xs text-black font-semibold">
-            {message.duration}
-          </Text>
+          <View className="flex-row items-center justify-between mt-1">
+            <Text className="text-xs text-slate-600 font-semibold">
+              {message.duration ?? "0:00"}
+            </Text>
+            <Text className="text-xs text-slate-400">
+              {message.time}
+            </Text>
+          </View>
         </View>
       </View>
-      <Text className="text-xs text-slate-400 self-end">
-        {message.time}
-      </Text>
     </View>
   );
 }
+
 
 const DEFAULT_WAVEFORM = [
   6, 14, 9, 20, 12, 24, 10, 18, 8, 22,

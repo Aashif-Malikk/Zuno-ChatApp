@@ -39,4 +39,20 @@ router.post('/upload-audio', varifyToken, (req, res, next) => {
   });
 }, userController.uploadAudio)
 
+// ---- NO-AUTH test route — remove after confirming upload works ----
+router.post('/test-audio-upload', (req, res, next) => {
+  audioUpload.single("audio")(req, res, (err) => {
+    if (err) {
+      console.error("TEST audio multer/storage error:", err);
+      return res.status(400).json({ success: false, message: err.message || "Upload failed" });
+    }
+    next();
+  });
+}, (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, message: "No file received" });
+  console.log("TEST upload req.file:", JSON.stringify(req.file, null, 2));
+  const url = req.file.path || req.file.secure_url;
+  return res.status(200).json({ success: true, url });
+});
+
 module.exports = router;
